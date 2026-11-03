@@ -1,4 +1,4 @@
-"""User-friendly command line interface for auto-censor."""
+"""User-friendly command line interface for Bleepify."""
 from __future__ import annotations
 import argparse, json, logging, os, sys
 from pathlib import Path
@@ -8,10 +8,10 @@ from processor import DEFAULT_WORDS, build_pattern, process_media
 
 MEDIA_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"}
-LOG = logging.getLogger("auto-censor")
+LOG = logging.getLogger("bleepify")
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="auto-censor", description="Автоматически заглушает нецензурные слова в видео и аудио.")
+    p = argparse.ArgumentParser(description="Автоматически заглушает нецензурные слова в видео и аудио.")
     p.add_argument("inputs", nargs="+", type=Path, metavar="INPUT", help="Медиафайл или папка")
     p.add_argument("-o", "--output", type=Path, default=Path("outputs"), help="Папка результатов")
     p.add_argument("--model", default=os.getenv("WHISPER_MODEL", "small"), help="Модель faster-whisper")

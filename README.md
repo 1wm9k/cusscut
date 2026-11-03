@@ -1,4 +1,4 @@
-# auto-censor
+# Bleepify
 
 CLI для автоматической цензуры нецензурной речи в аудио и видео. `faster-whisper` распознаёт речь с таймкодами, а программа заглушает найденные фрагменты, сохраняя исходную длину записи.
 
@@ -29,10 +29,12 @@ pip install -e .
 
 ## Быстрый запуск
 
+Полная команда — `bleepify`, короткий алиас — `blpf`. Они работают одинаково.
+
 ```bash
-auto-censor input.mp4 -o outputs
-auto-censor input.mp3 -o outputs
-auto-censor ./media --keep-going --overwrite
+bleepify input.mp4 -o outputs
+bleepify input.mp3 -o outputs
+bleepify ./media --keep-going --overwrite
 ```
 
 Также можно запускать напрямую:
@@ -44,15 +46,15 @@ python cli.py input.mp4 -o outputs
 Видео сохраняются в MP4 с исходной видеодорожкой. Для аудио по умолчанию сохраняется исходный поддерживаемый формат:
 
 ```bash
-auto-censor input.mp3 --format flac -o outputs
-auto-censor input.wav --format m4a -o outputs
-auto-censor input.ogg -o outputs  # неподдерживаемый для вывода OGG будет сохранён как MP3
+blpf input.mp3 --format flac -o outputs
+blpf input.wav --format m4a -o outputs
+blpf input.ogg -o outputs  # неподдерживаемый для вывода OGG будет сохранён как MP3
 ```
 
 ## Настройки
 
 ```bash
-auto-censor input.mp4 \
+blpf input.mp4 \
   --model small \
   --language ru \
   --padding-type percent \
@@ -87,7 +89,7 @@ auto-censor input.mp4 \
 Запуск:
 
 ```bash
-auto-censor input.mp4 --dictionary words.txt
+blpf input.mp4 --dictionary words.txt
 ```
 
 При использовании `--dictionary` он заменяет стандартный словарь.
@@ -95,16 +97,16 @@ auto-censor input.mp4 --dictionary words.txt
 ## Docker
 
 ```bash
-docker build -t auto-censor .
+docker build -t bleepify .
 docker run --rm \
   -v "${PWD}:/data" \
-  auto-censor /data/input.mp4 -o /data/outputs
+  bleepify /data/input.mp4 -o /data/outputs
 ```
 
 PowerShell:
 
 ```powershell
-docker run --rm -v "${PWD}:/data" auto-censor /data/input.mp4 -o /data/outputs
+docker run --rm -v "${PWD}:/data" bleepify /data/input.mp4 -o /data/outputs
 ```
 
 Чтобы модель не скачивалась заново при каждом запуске контейнера, подключите кеш:
@@ -113,7 +115,7 @@ docker run --rm -v "${PWD}:/data" auto-censor /data/input.mp4 -o /data/outputs
 docker run --rm \
   -v "${PWD}:/data" \
   -v "whisper-cache:/root/.cache" \
-  auto-censor /data/input.mp4 -o /data/outputs
+  bleepify /data/input.mp4 -o /data/outputs
 ```
 
 Для CUDA используйте образ с поддержкой NVIDIA и добавьте `--gpus all`, затем передайте `--device cuda --compute-type float16`.
@@ -126,3 +128,7 @@ python cli.py input.mp4 --dry-run
 ```
 
 Тесты проверяют распознавание слов, границы таймкодов и объединение перекрывающихся интервалов.
+
+
+
+

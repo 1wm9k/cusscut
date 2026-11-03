@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "auto-censor"
+name = "bleepify"
 version = "0.1.0"
 description = "CLI для автоматической цензуры речи в аудио и видео"
 requires-python = ">=3.10"
@@ -13,9 +13,12 @@ dependencies = ["faster-whisper>=1.2,<2", "pydub>=0.25,<1"]
 py-modules = ["cli", "processor"]
 
 [project.scripts]
-auto-censor = "cli:main"
+bleepify = "cli:main"
+blpf = "cli:main"
 
 [tool.pytest.ini_options]
 addopts = "-q"
+
+
 
 
