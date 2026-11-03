@@ -75,5 +75,3 @@ def process_media(input_path: Path, output_path: Path, model: WhisperModel, **op
         try: return merge_output(input_path, censored, output_path, options.get("export_type", "video"), options.get("audio_format", "mp3")), count
         finally: censored.unlink(missing_ok=True)
 
-
-
