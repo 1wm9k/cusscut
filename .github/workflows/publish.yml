@@ -1,8 +1,8 @@
 name: Publish to PyPI
 
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -30,6 +30,20 @@ jobs:
       - name: Build distributions
         run: |
           python -m pip install --upgrade build
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+          import tomllib
+
+          path = Path("pyproject.toml")
+          text = path.read_text(encoding="utf-8")
+          base_version = tomllib.loads(text)["project"]["version"]
+          publish_version = f"{base_version}.post{os.environ['GITHUB_RUN_NUMBER']}"
+          text = re.sub(r'(?m)^version = "[^"]+"$', f'version = "{publish_version}"', text, count=1)
+          path.write_text(text, encoding="utf-8")
+          print(f"Publishing version {publish_version}")
+          PY
           python -m build
 
       - name: Publish distributions

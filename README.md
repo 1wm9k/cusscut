@@ -1,169 +1,163 @@
 # CussCut
 
-CLI для автоматической цензуры нецензурной речи в аудио и видео. `faster-whisper` распознаёт речь с таймкодами, а программа заглушает найденные фрагменты, сохраняя исходную длину записи.
+CussCut — CLI для автоматической цензуры нецензурной речи в аудио и видео. Whisper распознаёт речь с таймкодами, а FFmpeg заглушает найденные интервалы, сохраняя длительность записи.
 
-## Возможности
-
-- видео: MP4, MOV, MKV, AVI, WebM, M4V;
-- аудио: MP3, WAV, FLAC, M4A, OGG, AAC;
-- обработка одного файла или папки рекурсивно;
-- CPU по умолчанию и CUDA при наличии совместимой видеокарты;
-- пользовательский словарь слов и корней;
-- пакетная обработка без загрузки всех файлов в память;
-- Docker-запуск без ручной установки FFmpeg.
+Поддерживаются CPU и CUDA, обработка одного файла или каталога, пользовательские словари, кеш таймкодов и Docker.
 
 ## Установка
 
-Нужны Python 3.10+ и FFmpeg в `PATH`.
+Требуется Python 3.10+ и FFmpeg в `PATH`.
 
-```bash
-python -m venv .venv
-# Windows PowerShell
-.\.venv\Scripts\Activate.ps1
-# Linux/macOS
-# source .venv/bin/activate
-pip install -e .
-```
-
-После публикации в PyPI пакет можно будет установить одной командой:
-
-```bash
+```powershell
 python -m pip install cusscut
 ```
 
-Пока пакет можно установить напрямую из GitHub:
+После установки доступны три одинаковые команды:
 
-```bash
+```text
+cusscut
+ccut
+ccus
+```
+
+Для установки последней версии прямо из GitHub:
+
+```powershell
 python -m pip install "git+https://github.com/1wm9k/cusscut.git"
 ```
 
-Для CLI-утилиты удобно использовать `pipx`:
+При первом запуске `faster-whisper` скачает выбранную модель. Модель хранится в кеше Hugging Face и повторно не скачивается.
 
-```bash
-pipx install "git+https://github.com/1wm9k/cusscut.git"
+## Быстрый старт
+
+```powershell
+ccus input.mp4 -o outputs
+ccus input.mp3 -o outputs
+ccus .\media -o outputs --keep-going
 ```
 
-Доступны команды `cusscut`, `ccut` и короткий алиас `ccus`.
+Видео сохраняются в MP4. Для аудио формат по умолчанию берётся из исходного файла, если он поддерживается результатом.
 
-Для разработки и сборки пакета:
-
-```bash
-python -m pip install -e ".[dev]"
-python -m build
+```powershell
+ccus input.mp3 --format flac -o outputs
+ccus input.wav --format m4a -o outputs
+ccus input.ogg -o outputs       # результат будет MP3
 ```
 
-В каталоге `dist/` появятся wheel и source distribution.
+При обработке каталога output-папка исключается из поиска, вложенная структура сохраняется, а одинаковые имена не перезаписывают друг друга.
 
-При первом запуске `faster-whisper` скачает выбранную модель. Для слабого CPU используйте `--model tiny` или `--model base`.
+## Основные параметры
 
-## Быстрый запуск
-
-Полная команда — `cusscut`, короткий алиас — `ccut`. Они работают одинаково.
-
-```bash
-cusscut input.mp4 -o outputs
-cusscut input.mp3 -o outputs
-cusscut ./media --keep-going --overwrite
-```
-
-Также можно запускать напрямую:
-
-```bash
-python cli.py input.mp4 -o outputs
-```
-
-Видео сохраняются в MP4 с исходной видеодорожкой. Для аудио по умолчанию сохраняется исходный поддерживаемый формат:
-
-```bash
-ccut input.mp3 --format flac -o outputs
-ccut input.wav --format m4a -o outputs
-ccut input.ogg -o outputs  # неподдерживаемый для вывода OGG будет сохранён как MP3
-```
-
-## Настройки
-
-```bash
-ccut input.mp4 \
-  --model small \
-  --language ru \
-  --padding-type percent \
-  --padding-start 20 \
-  --padding-end 20 \
-  --volume 0 \
+```powershell
+ccus input.mp4 `
+  --model small `
+  --device cpu `
+  --compute-type int8 `
+  --language ru `
+  --volume 0 `
   --fade-ms 30
 ```
 
-- `--padding-type percent|ms` — единицы отступов вокруг слова;
-- `--padding-start`, `--padding-end` — сколько оставить в начале и конце слова;
-- `--volume 0..1` — остаточная громкость заглушенного фрагмента, `0` означает тишину;
-- `--fade-ms` — плавное начало и окончание заглушки;
-- `--match-mode substring|prefix|exact` — режим сопоставления словаря; по умолчанию ищется подстрока, `prefix` подходит для корней, `exact` требует полное совпадение;
-- `--min-probability 0..1` — минимальная уверенность Whisper для срабатывания;
-- `--cache-dir PATH` — сохранять таймкоды распознавания для повторного рендеринга без запуска Whisper;
-- `--format same|mp3|wav|flac|m4a` — формат аудио результата;
-- `--overwrite` — перезаписать существующие результаты;
-- `--keep-going` — продолжить пакет после ошибки;
-- `--dry-run` — показать план без загрузки модели;
-- `--json` — вывести итог в JSON.
+| Параметр | Назначение |
+| --- | --- |
+| `--model` | Модель `faster-whisper`; по умолчанию `small`. |
+| `--device` | `cpu` или `cuda`. |
+| `--compute-type` | Например, `int8` для CPU или `float16` для CUDA. |
+| `--language` | Язык речи, например `ru` или `en`. |
+| `--volume` | Остаточная громкость заглушенного фрагмента от `0` до `1`. |
+| `--fade-ms` | Плавное начало и окончание заглушки. |
+| `--padding-type` | `percent` или `ms`. |
+| `--padding-start`, `--padding-end` | Сколько убрать с краёв распознанного слова. |
+| `--match-mode` | `substring`, `prefix` или `exact`. |
+| `--min-probability` | Минимальная уверенность Whisper для срабатывания. |
+| `--format` | `same`, `mp3`, `wav`, `flac` или `m4a`. Для видео всегда MP4. |
+| `--cache-dir` | Папка кеша таймкодов Whisper. |
+| `--overwrite` | Перезаписать существующие результаты. |
+| `--keep-going` | Продолжить пакет после ошибки. |
+| `--dry-run` | Показать план без загрузки модели. |
+| `--json` | Вывести результат или план в JSON. |
 
-## Внешний словарь
+## Словарь
 
-Файл словаря содержит одно слово или корень на строку. Пустые строки и комментарии после `#` игнорируются.
-
-`words.txt`:
+Файл содержит одно слово или корень на строку. Пустые строки и комментарии после `#` игнорируются.
 
 ```text
-# Можно указывать корни, чтобы ловить производные формы
+# words.txt
 мат
 ругательствослово
 ```
 
-Запуск:
-
-```bash
-ccut input.mp4 --dictionary words.txt
+```powershell
+ccus input.mp4 --dictionary words.txt --match-mode prefix
 ```
 
-При использовании `--dictionary` он заменяет стандартный словарь.
+Режимы сопоставления:
 
-Кеш таймкодов учитывает путь, размер и дату изменения исходника, модель и язык. Если любой из этих параметров изменился, файл распознаётся заново.
+- `substring` — ищет фрагмент внутри слова; это режим по умолчанию;
+- `prefix` — ищет корень в начале слова;
+- `exact` — требует полное совпадение.
 
-Перед сопоставлением слова нормализуются в Unicode и приводятся к нижнему регистру; `ё` и `е` считаются одинаковыми. Для длинных корней рекомендуется `--match-mode prefix`.
+Перед сопоставлением текст нормализуется в Unicode, приводится к нижнему регистру, а `ё` и `е` считаются одинаковыми. Внешний словарь заменяет встроенный.
 
-При обработке видео сохраняются дополнительные аудиодорожки, субтитры и metadata, а цензурированная дорожка становится первой. Если в файле не найдено ни одного слова и формат результата совпадает с исходным, файл копируется без перекодирования.
+## Кеш распознавания
+
+Кеш позволяет менять громкость, fade, padding и словарь без повторного запуска Whisper:
+
+```powershell
+ccus input.mp4 --cache-dir .cusscut-cache
+ccus input.mp4 --cache-dir .cusscut-cache --volume 0.15 --fade-ms 50
+```
+
+Запись кеша зависит от пути, размера и даты изменения исходника, модели и языка. При изменении этих параметров распознавание выполняется заново.
+
+## Результаты и потоки
+
+Для видео сохраняются дополнительные аудиодорожки, субтитры и metadata. Новая цензурированная аудиодорожка становится первой. Если слова не найдены и формат результата совпадает с исходным, файл копируется без перекодирования.
+
+Результаты записываются атомарно через временный файл, поэтому прерванная обработка не должна оставлять готовый на вид повреждённый MP4.
 
 ## Docker
 
-```bash
-docker build -t cusscut .
-docker run --rm \
-  -v "${PWD}:/data" \
-  cusscut /data/input.mp4 -o /data/outputs
-```
-
-PowerShell:
-
 ```powershell
+docker build -t cusscut .
 docker run --rm -v "${PWD}:/data" cusscut /data/input.mp4 -o /data/outputs
 ```
 
-Чтобы модель не скачивалась заново при каждом запуске контейнера, подключите кеш:
+Чтобы не скачивать модель заново:
 
-```bash
-docker run --rm \
-  -v "${PWD}:/data" \
-  -v "whisper-cache:/root/.cache" \
+```powershell
+docker run --rm `
+  -v "${PWD}:/data" `
+  -v "whisper-cache:/root/.cache" `
   cusscut /data/input.mp4 -o /data/outputs
 ```
 
-Для CUDA используйте образ с поддержкой NVIDIA и добавьте `--gpus all`, затем передайте `--device cuda --compute-type float16`.
+## Разработка
 
-## Проверка проекта
-
-```bash
+```powershell
+python -m pip install -e ".[dev]"
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD = "1"
 python -m pytest
-python cli.py input.mp4 --dry-run
+python -m build
 ```
 
-Тесты проверяют распознавание слов, границы таймкодов и объединение перекрывающихся интервалов.
+Сборка создаёт wheel и source distribution в `dist/`.
+
+## CI/CD и PyPI
+
+GitHub Actions запускает тесты и сборку на push и pull request. Workflow `publish.yml` публикует пакет в PyPI на каждый push в `main` и при ручном запуске.
+
+Для push-публикаций workflow берёт базовую версию из `pyproject.toml` и добавляет номер запуска GitHub Actions. Например:
+
+```text
+0.1.0.post12
+```
+
+Чтобы начать новую основную версию, измени `version` в `pyproject.toml`, например на `0.2.0`, и отправь commit в `main`.
+
+## Ссылки
+
+- [GitHub](https://github.com/1wm9k/cusscut)
+- [PyPI](https://pypi.org/project/cusscut/)
+- [Техническое описание проекта](TECHNICAL.md)
 

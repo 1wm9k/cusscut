@@ -1,18 +1,41 @@
+# Python cache and environments
 __pycache__/
+*.py[cod]
+*.egg-info/
 .pytest_cache/
-*.pyc
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 .venv/
-outputs/*
-uploads/*
-video_source/*
+venv/
+env/
+.env
+
+# Build artifacts
+build/
+dist/
+
+# Local media and generated results
+outputs/
+uploads/
+video_source/
+.cusscut-cache/
+*.part
+*.ffscript
 *.mp4
 *.mp3
 *.wav
 *.m4a
 *.flac
-*.egg-info/
-dist/
-build/
+
+# Local tools and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Legacy/local project files
 old/
 templates/
 main.py
