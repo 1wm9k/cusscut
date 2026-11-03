@@ -25,6 +25,35 @@ python -m venv .venv
 pip install -e .
 ```
 
+После публикации в PyPI пакет можно будет установить одной командой:
+
+```bash
+python -m pip install cusscut
+```
+
+Пока пакет можно установить напрямую из GitHub:
+
+```bash
+python -m pip install "git+https://github.com/1wm9k/cusscut.git"
+```
+
+Для CLI-утилиты удобно использовать `pipx`:
+
+```bash
+pipx install "git+https://github.com/1wm9k/cusscut.git"
+```
+
+Доступны команды `cusscut`, `ccut` и короткий алиас `ccus`.
+
+Для разработки и сборки пакета:
+
+```bash
+python -m pip install -e ".[dev]"
+python -m build
+```
+
+В каталоге `dist/` появятся wheel и source distribution.
+
 При первом запуске `faster-whisper` скачает выбранную модель. Для слабого CPU используйте `--model tiny` или `--model base`.
 
 ## Быстрый запуск

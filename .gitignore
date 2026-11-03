@@ -11,6 +11,8 @@ video_source/*
 *.m4a
 *.flac
 *.egg-info/
+dist/
+build/
 old/
 templates/
 main.py

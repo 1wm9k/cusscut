@@ -1,2 +1,1 @@
 faster-whisper>=1.2,<2
-pytest>=8,<9

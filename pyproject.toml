@@ -6,8 +6,16 @@ build-backend = "setuptools.build_meta"
 name = "cusscut"
 version = "0.1.0"
 description = "CLI для автоматической цензуры речи в аудио и видео"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["faster-whisper>=1.2,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "build>=1.2,<2", "twine>=5,<7"]
+
+[project.urls]
+Homepage = "https://github.com/1wm9k/cusscut"
+Repository = "https://github.com/1wm9k/cusscut"
 
 [tool.setuptools]
 py-modules = ["cli", "processor"]
@@ -15,6 +23,7 @@ py-modules = ["cli", "processor"]
 [project.scripts]
 cusscut = "cli:main"
 ccut = "cli:main"
+ccus = "cli:main"
 
 [tool.pytest.ini_options]
 addopts = "-q"
