@@ -1,0 +1,14 @@
+.dockerignore
+.git
+.gitignore
+__pycache__
+.pytest_cache
+.venv
+outputs
+uploads
+video_source
+*.mp4
+*.mp3
+*.wav
+*.m4a
+*.flac
