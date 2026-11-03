@@ -1,4 +1,4 @@
-"""User-friendly command line interface for Bleepify."""
+"""User-friendly command line interface for CussCut."""
 from __future__ import annotations
 import argparse, json, logging, os, sys
 from pathlib import Path
@@ -8,7 +8,7 @@ from processor import DEFAULT_WORDS, build_pattern, process_media
 
 MEDIA_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"}
-LOG = logging.getLogger("bleepify")
+LOG = logging.getLogger("cusscut")
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Автоматически заглушает нецензурные слова в видео и аудио.")
@@ -79,5 +79,4 @@ def main(argv: list[str] | None = None) -> int:
     return 0 if len(results) == len(plan) and all(x["status"] in {"ok", "skipped"} for x in results) else 1
 
 if __name__ == "__main__": sys.exit(main())
-
 
