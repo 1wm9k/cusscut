@@ -11,3 +11,7 @@ video_source/*
 *.m4a
 *.flac
 *.egg-info/
+old/
+templates/
+main.py
+config.json
