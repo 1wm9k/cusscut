@@ -14,24 +14,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("inputs", nargs="+", type=Path, metavar="INPUT", help="Медиафайл или папка")
     p.add_argument("-o", "--output", type=Path, default=Path("outputs"), help="Папка результатов")
     p.add_argument("--model", default=os.getenv("WHISPER_MODEL", "small"), help="Модель faster-whisper")
+    p.add_argument("--cache-dir", type=Path, help="Папка кеша таймкодов Whisper")
     p.add_argument("--device", choices=("cpu", "cuda"), default=os.getenv("WHISPER_DEVICE", "cpu"))
     p.add_argument("--compute-type", default=None, help="int8 для CPU, float16 для CUDA")
     p.add_argument("--language", default="ru", help="Язык речи")
     p.add_argument("--dictionary", type=Path, help="Файл словаря: одно слово или корень на строку; строки с # игнорируются")
+    p.add_argument("--match-mode", choices=("substring", "prefix", "exact"), default="substring", help="Как сопоставлять слова словаря")
     p.add_argument("--padding-type", choices=("percent", "ms"), default="percent")
     p.add_argument("--padding-start", type=float, default=20); p.add_argument("--padding-end", type=float, default=20)
     p.add_argument("--volume", type=float, default=0, metavar="0..1", help="Оставшаяся громкость слова; 0 = тишина")
     p.add_argument("--fade-ms", type=int, default=0, help="Плавная граница заглушки")
+    p.add_argument("--min-probability", type=float, default=None, metavar="0..1", help="Минимальная уверенность Whisper для цензуры слова")
     p.add_argument("--format", choices=("same", "mp3", "wav", "flac", "m4a"), default="same", help="Формат аудио результата; для видео всегда MP4")
     p.add_argument("--overwrite", action="store_true"); p.add_argument("--keep-going", action="store_true"); p.add_argument("--dry-run", action="store_true"); p.add_argument("--json", action="store_true", dest="json_output")
     return p
 
-def load_dictionary(path: Path | None):
-    if path is None: return build_pattern(DEFAULT_WORDS)
+def load_dictionary(path: Path | None, match_mode: str = "substring"):
+    if path is None: return build_pattern(DEFAULT_WORDS, match_mode)
     if not path.is_file(): raise ValueError(f"Словарь не найден: {path}")
     words = [line.split("#", 1)[0].strip() for line in path.read_text(encoding="utf-8-sig").splitlines()]; words = [w for w in words if w]
     if not words: raise ValueError("Словарь пустой")
-    return build_pattern(words)
+    return build_pattern(words, match_mode)
 
 def collect_inputs(inputs: Iterable[Path], output_dir: Path | None = None) -> list[Path]:
     files = []
@@ -104,10 +107,10 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv); logging.basicConfig(level=logging.INFO, format="%(message)s")
     try:
         plan = build_plan(args.inputs, args.output, args.format)
-        pattern = load_dictionary(args.dictionary)
+        pattern = load_dictionary(args.dictionary, args.match_mode)
     except (ValueError, OSError) as exc: LOG.error("Ошибка: %s", exc); return 2
     if not plan: LOG.error("Медиафайлы не найдены."); return 2
-    if args.padding_start < 0 or args.padding_end < 0 or args.volume < 0 or args.volume > 1 or args.fade_ms < 0: LOG.error("Проверьте параметры отступов, fade и volume (0..1)."); return 2
+    if args.padding_start < 0 or args.padding_end < 0 or args.volume < 0 or args.volume > 1 or args.fade_ms < 0 or (args.min_probability is not None and not 0 <= args.min_probability <= 1): LOG.error("Проверьте параметры отступов, fade, volume и min-probability (0..1)."); return 2
     if args.dry_run:
         if args.json_output:
             print(json.dumps([{"input": str(source), "output": str(output), "status": "planned"} for source, output in plan], ensure_ascii=False, indent=2))
@@ -126,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
         from faster_whisper import WhisperModel
         model = WhisperModel(args.model, device=args.device, compute_type=compute)
     except Exception as exc: LOG.error("Не удалось загрузить модель: %s", exc); return 1
-    results = []; options = dict(language=args.language, pattern=pattern, padding_type=args.padding_type, padding_start=args.padding_start, padding_end=args.padding_end, volume_reduction=args.volume, fade_ms=args.fade_ms, export_type="audio_only", audio_format=(args.format if args.format != "same" else "mp3"))
+    results = []; options = dict(language=args.language, model_name=args.model, cache_dir=args.cache_dir, min_probability=args.min_probability, pattern=pattern, padding_type=args.padding_type, padding_start=args.padding_start, padding_end=args.padding_end, volume_reduction=args.volume, fade_ms=args.fade_ms, export_type="audio_only", audio_format=(args.format if args.format != "same" else "mp3"))
     for index, (source, output) in enumerate(plan, 1):
         if output.exists() and not args.overwrite: LOG.warning("[%d/%d] Пропуск: %s", index, len(plan), output); results.append({"input": str(source), "status": "skipped", "output": str(output)}); continue
         LOG.info("[%d/%d] Обработка: %s", index, len(plan), source.name)
