@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse, json, logging, os, sys
 from pathlib import Path
 from typing import Iterable
-from faster_whisper import WhisperModel
 from processor import DEFAULT_WORDS, build_pattern, process_media
 
 MEDIA_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".mp3", ".wav", ".flac", ".m4a", ".ogg", ".aac"}
@@ -34,36 +33,100 @@ def load_dictionary(path: Path | None):
     if not words: raise ValueError("Словарь пустой")
     return build_pattern(words)
 
-def collect_inputs(inputs: Iterable[Path]) -> list[Path]:
+def collect_inputs(inputs: Iterable[Path], output_dir: Path | None = None) -> list[Path]:
     files = []
+    resolved_output = output_dir.resolve() if output_dir is not None else None
     for item in inputs:
         if not item.exists(): raise ValueError(f"Файл или папка не найдены: {item}")
-        candidates = [item] if item.is_file() else sorted(p for p in item.rglob("*") if p.is_file() and p.suffix.lower() in MEDIA_EXTENSIONS)
+        if item.is_file():
+            candidates = [item]
+        else:
+            candidates = []
+            for path in sorted(item.rglob("*")):
+                if not path.is_file() or path.suffix.lower() not in MEDIA_EXTENSIONS:
+                    continue
+                if resolved_output is not None:
+                    try:
+                        path.resolve().relative_to(resolved_output)
+                    except ValueError:
+                        pass
+                    else:
+                        continue
+                candidates.append(path)
         for path in candidates:
             if path.suffix.lower() not in MEDIA_EXTENSIONS: raise ValueError(f"Неподдерживаемый формат: {path.suffix}")
             files.append(path.resolve())
     return list(dict.fromkeys(files))
 
-def output_for(source: Path, output_dir: Path, fmt: str) -> Path:
-    if source.suffix.lower() in VIDEO_EXTENSIONS: return output_dir / f"{source.stem}_clean.mp4"
+def output_for(source: Path, output_dir: Path, fmt: str, relative_to: Path | None = None) -> Path:
+    target_dir = output_dir
+    if relative_to is not None:
+        target_dir = output_dir / relative_to.parent
+    if source.suffix.lower() in VIDEO_EXTENSIONS: return target_dir / f"{source.stem}_clean.mp4"
     extension = source.suffix.lower().lstrip(".") if fmt == "same" else fmt
     if extension not in {"mp3", "wav", "flac", "m4a"}: extension = "mp3"
-    return output_dir / f"{source.stem}_clean.{extension}"
+    return target_dir / f"{source.stem}_clean.{extension}"
+
+def build_plan(inputs: Iterable[Path], output_dir: Path, fmt: str) -> list[tuple[Path, Path]]:
+    plan: list[tuple[Path, Path]] = []
+    seen: set[Path] = set()
+    used_outputs: set[Path] = set()
+    for item in inputs:
+        if item.is_file():
+            candidates = [(item.resolve(), None)]
+        else:
+            candidates = []
+            for source in collect_inputs([item], output_dir):
+                try:
+                    relative = source.relative_to(item.resolve())
+                except ValueError:
+                    relative = None
+                candidates.append((source, relative))
+        for source, relative in candidates:
+            if source in seen:
+                continue
+            seen.add(source)
+            output = output_for(source, output_dir, fmt, relative)
+            if output.resolve() in used_outputs:
+                suffix = source.parent.name or "input"
+                output = output.with_name(f"{output.stem}_{suffix}{output.suffix}")
+                counter = 2
+                while output.resolve() in used_outputs:
+                    output = output.with_name(f"{output.stem}_{counter}{output.suffix}")
+                    counter += 1
+            if output.resolve() == source:
+                raise ValueError(f"Папка результатов совпадает с входным файлом: {source}")
+            used_outputs.add(output.resolve())
+            plan.append((source, output))
+    return plan
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv); logging.basicConfig(level=logging.INFO, format="%(message)s")
-    try: files = collect_inputs(args.inputs); pattern = load_dictionary(args.dictionary)
+    try:
+        plan = build_plan(args.inputs, args.output, args.format)
+        pattern = load_dictionary(args.dictionary)
     except (ValueError, OSError) as exc: LOG.error("Ошибка: %s", exc); return 2
-    if not files: LOG.error("Медиафайлы не найдены."); return 2
+    if not plan: LOG.error("Медиафайлы не найдены."); return 2
     if args.padding_start < 0 or args.padding_end < 0 or args.volume < 0 or args.volume > 1 or args.fade_ms < 0: LOG.error("Проверьте параметры отступов, fade и volume (0..1)."); return 2
-    plan = [(source, output_for(source, args.output, args.format)) for source in files]
     if args.dry_run:
-        for source, output in plan: print(f"{source} -> {output}")
+        if args.json_output:
+            print(json.dumps([{"input": str(source), "output": str(output), "status": "planned"} for source, output in plan], ensure_ascii=False, indent=2))
+        else:
+            for source, output in plan: print(f"{source} -> {output}")
+        return 0
+    pending = [(source, output) for source, output in plan if args.overwrite or not output.exists()]
+    if not pending:
+        results = [{"input": str(source), "status": "skipped", "output": str(output)} for source, output in plan]
+        if args.json_output: print(json.dumps(results, ensure_ascii=False, indent=2))
+        else:
+            for result in results: LOG.info("Пропуск: %s", result["output"])
         return 0
     compute = args.compute_type or ("int8" if args.device == "cpu" else "float16")
-    try: model = WhisperModel(args.model, device=args.device, compute_type=compute)
+    try:
+        from faster_whisper import WhisperModel
+        model = WhisperModel(args.model, device=args.device, compute_type=compute)
     except Exception as exc: LOG.error("Не удалось загрузить модель: %s", exc); return 1
-    results = []; options = dict(language=args.language, pattern=pattern, padding_type=args.padding_type, padding_start=args.padding_start, padding_end=args.padding_end, volume_reduction=args.volume, fade_ms=args.fade_ms, export_type="video" if files[0].suffix.lower() in VIDEO_EXTENSIONS else "audio_only", audio_format=(args.format if args.format != "same" else "mp3"))
+    results = []; options = dict(language=args.language, pattern=pattern, padding_type=args.padding_type, padding_start=args.padding_start, padding_end=args.padding_end, volume_reduction=args.volume, fade_ms=args.fade_ms, export_type="audio_only", audio_format=(args.format if args.format != "same" else "mp3"))
     for index, (source, output) in enumerate(plan, 1):
         if output.exists() and not args.overwrite: LOG.warning("[%d/%d] Пропуск: %s", index, len(plan), output); results.append({"input": str(source), "status": "skipped", "output": str(output)}); continue
         LOG.info("[%d/%d] Обработка: %s", index, len(plan), source.name)
