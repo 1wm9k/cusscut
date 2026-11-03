@@ -15,3 +15,4 @@ old/
 templates/
 main.py
 config.json
+outdated/
