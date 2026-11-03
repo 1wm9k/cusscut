@@ -10,3 +10,4 @@ video_source/*
 *.wav
 *.m4a
 *.flac
+*.egg-info/
