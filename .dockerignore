@@ -12,3 +12,8 @@ video_source
 *.wav
 *.m4a
 *.flac
+old
+templates
+static
+main.py
+config.json
